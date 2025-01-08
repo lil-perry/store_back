@@ -53,43 +53,41 @@ class CartView(APIView):
 
 
 
-class CartItemView(APIView):
-    def post(self, request):
-        # Проверяем наличие session_id
+# class CartItemView(APIView):
+#     def post(self, request):
+#         session_id = request.session.get('session_id')
+#         serializer = CartItemSerializer(data=request.data, context={'session_id': session_id})
+#         serializer.is_valid(raise_exception=True)
+#         cart_item = serializer.save()
+
+#         return Response({"item": CartItemSerializer(cart_item).data}, status=status.HTTP_201_CREATED)
+
+
+#     def put(self, request, pk):
+#         session_id = request.session.get('session_id')
+#         cart_item = CartItemSerializer.get_cart_item(pk)
+#         serializer = CartItemSerializer(cart_item, data=request.data, partial=False, context={'session_id': session_id})
+#         serializer.is_valid(raise_exception=True)
+#         updated_item = serializer.save()
+
+#         return Response({"item": CartItemSerializer(updated_item).data}, status=status.HTTP_200_OK)
+
+
+
+class CartItemViewSet(viewsets.ViewSet):
+    def create(self, request):
         session_id = request.session.get('session_id')
-        if not session_id:
-            return Response({"message": "No cart"}, status=status.HTTP_400_BAD_REQUEST)
-
-        
-        try:
-            cart = Cart.objects.get(session_id=session_id)
-        except Cart.DoesNotExist:
-            return Response({"message": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        
-        data = request.data.copy()
-        data['cart'] = cart.id
-
-        # новый элемент корзины
-        serializer = CartItemSerializer(data=data)
+        serializer = CartItemSerializer(data=request.data, context={'session_id': session_id})
         serializer.is_valid(raise_exception=True)
         cart_item = serializer.save()
-
         return Response({"item": CartItemSerializer(cart_item).data}, status=status.HTTP_201_CREATED)
 
-
-    def put(self, request, pk):
-        # Находим элемент корзины по его ID
-        try:
-            cart_item = CartItem.objects.get(pk=pk)
-        except CartItem.DoesNotExist:
-            return Response({"message": "Cart item not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Обновляем количество
-        serializer = CartItemSerializer(cart_item, data=request.data, partial=False)
+    def update(self, request, pk=None):
+        session_id = request.session.get('session_id')
+        cart_item = CartItemSerializer.get_cart_item(pk)
+        serializer = CartItemSerializer(cart_item, data=request.data, partial=False, context={'session_id': session_id})
         serializer.is_valid(raise_exception=True)
         updated_item = serializer.save()
-
         return Response({"item": CartItemSerializer(updated_item).data}, status=status.HTTP_200_OK)
 
 
@@ -109,3 +107,8 @@ class OrderView(APIView):
         if not cart.items.exists():
             return Response({"message": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
         
+        serializer = OrderSerializer(data=request.data, context={'cart': cart})
+        serializer.is_valid(raise_exception=True)
+        order = serializer.save() 
+
+
