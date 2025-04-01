@@ -62,6 +62,7 @@ class Order(models.Model):
     delivery_address = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     status = models.CharField(
         max_length=20,
         choices=[
@@ -73,7 +74,7 @@ class Order(models.Model):
         ],
         default='pending',
     )
-    total_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
 
     def str(self):
         return f"Order {self.id} - {self.email} - {self.delivery_address}"
@@ -93,5 +94,9 @@ class OrderItem(models.Model):
         return f"{self.quantity} x {self.product.name}"
 
     def total_price(self):
-        """Общая стоимость для данного OrderItem."""
-        return self.quantity * self.price_per_item
+        return self.quantity * self.product.price
+
+    def save(self, *args, **kwargs):
+        if not self.price_per_item:
+            self.price_per_item = self.product.price
+        super().save(*args, **kwargs)

@@ -2,7 +2,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import CartItemSerializer, CartSerializer, CategotySerializer, ProductSerializer
+from .serializers import CartItemSerializer, CartSerializer, CategorySerializer, ProductSerializer
 import uuid
 
 from .models import Cart, CartItem, Category, Product
@@ -27,17 +27,16 @@ from rest_framework import viewsets
 
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
-    serializer_class = CategotySerializer
+    serializer_class = CategorySerializer
 
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
 
-
+ 
 class CartView(APIView):
     def get_cart(self, request):
-        """Получение корзины по session_id или пользователю"""
         session_id = request.session.get('session_id')
         if not session_id:
             session_id = str(uuid.uuid4())
@@ -46,7 +45,6 @@ class CartView(APIView):
         return cart
 
     def get(self, request):
-        """Получение данных о корзине"""
         cart = self.get_cart(request)
         serializer = CartSerializer(cart)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -81,10 +79,15 @@ class CartItemViewSet(viewsets.ViewSet):
         serializer.is_valid(raise_exception=True)
         cart_item = serializer.save()
         return Response({"item": CartItemSerializer(cart_item).data}, status=status.HTTP_201_CREATED)
+        # return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, pk=None):
         session_id = request.session.get('session_id')
-        cart_item = CartItemSerializer.get_cart_item(pk)
+        try:
+            cart_item = CartItem.objects.get(pk=pk, cart__session_id=session_id)
+        except CartItem.DoesNotExist:
+            return Response({"message": "Cart item not found"}, status=status.HTTP_404_NOT_FOUND)
+        # cart_item = CartItemSerializer.get_cart_item(pk)
         serializer = CartItemSerializer(cart_item, data=request.data, partial=False, context={'session_id': session_id})
         serializer.is_valid(raise_exception=True)
         updated_item = serializer.save()
@@ -97,18 +100,18 @@ class OrderView(APIView):
         session_id = request.session.get('session_id')
         if not session_id:
             return Response({"message": "No cart"}, status=status.HTTP_400_BAD_REQUEST)
-                
+
         try:
             cart = Cart.objects.prefetch_related('items__product').get(session_id=session_id)
         except Cart.DoesNotExist:
             return Response({"message": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
-        
+
         print(cart.items.all())
         if not cart.items.exists():
             return Response({"message": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         serializer = OrderSerializer(data=request.data, context={'cart': cart})
         serializer.is_valid(raise_exception=True)
-        order = serializer.save() 
+        order = serializer.save()
 
 
