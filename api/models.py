@@ -19,6 +19,13 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="product_images/")
+    is_main = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
 
 class Cart(models.Model):
@@ -53,9 +60,6 @@ class CartItem(models.Model):
 
 
 
-
-
-
 class Order(models.Model):
     email = models.EmailField()
     phone_number = models.CharField(max_length=15)
@@ -79,9 +83,13 @@ class Order(models.Model):
     def str(self):
         return f"Order {self.id} - {self.email} - {self.delivery_address}"
 
-    def calculate_total_price(self):
-        self.total_price = sum(item.total_price() for item in self.items.all())
-        self.save()
+    # def calculate_total_price(self):
+    #     self.total_price = sum(item.total_price() for item in self.items.all())
+    #     self.save()
+
+    # def save(self, *args, **kwargs):
+    #     self.calculate_total_price()
+    #     super().save(*args, **kwargs)
 
 
 class OrderItem(models.Model):

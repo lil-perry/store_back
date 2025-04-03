@@ -2,14 +2,17 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import CartItemSerializer, CartSerializer, CategorySerializer, ProductSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from .serializers import CartItemSerializer, CartSerializer, CategorySerializer, ProductSerializer, OrderSerializer, \
+    ProductImageSerializer
 import uuid
 
-from .models import Cart, CartItem, Category, Product
+from .models import Cart, CartItem, Category, Product, ProductImage, Order
 from django.db import transaction
 from .serializers import CartSerializer
-from rest_framework import viewsets
+from rest_framework import mixins, viewsets
 
+from .services.order_service import OrderService
 
 
 # class CartCreateView(APIView):
@@ -32,9 +35,16 @@ class CategoryViewSet(viewsets.ModelViewSet):
 class ProductViewSet(viewsets.ModelViewSet):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+    parser_classes = [MultiPartParser, FormParser]
 
 
- 
+class ProductImageViewSet(mixins.CreateModelMixin,
+                          mixins.DestroyModelMixin,
+                          viewsets.GenericViewSet):
+    queryset = ProductImage.objects.all()
+    serializer_class = ProductImageSerializer
+
+
 class CartView(APIView):
     def get_cart(self, request):
         session_id = request.session.get('session_id')
@@ -94,24 +104,58 @@ class CartItemViewSet(viewsets.ViewSet):
         return Response({"item": CartItemSerializer(updated_item).data}, status=status.HTTP_200_OK)
 
 
+# hueta
+# class OrderView(APIView):
+#     def post(self, request):
+#         session_id = request.session.get('session_id')
+#         if not session_id:
+#             return Response({"message": "No cart"}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         try:
+#             cart = Cart.objects.prefetch_related('items__product').get(session_id=session_id)
+#         except Cart.DoesNotExist:
+#             return Response({"message": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
+#
+#         print(cart.items.all())
+#         if not cart.items.exists():
+#             return Response({"message": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         serializer = OrderSerializer(data=request.data, context={'cart': cart})
+#         serializer.is_valid(raise_exception=True)
+#         order = serializer.save()
+
+
+
 
 class OrderView(APIView):
+
     def post(self, request):
         session_id = request.session.get('session_id')
+
         if not session_id:
-            return Response({"message": "No cart"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "no cart"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            cart = Cart.objects.prefetch_related('items__product').get(session_id=session_id)
+            cart = Cart.objects.get(session_id=session_id)
         except Cart.DoesNotExist:
-            return Response({"message": "Cart not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "no cart error"}, status=status.HTTP_404_NOT_FOUND)
 
-        print(cart.items.all())
-        if not cart.items.exists():
-            return Response({"message": "Cart is empty"}, status=status.HTTP_400_BAD_REQUEST)
-
-        serializer = OrderSerializer(data=request.data, context={'cart': cart})
+        serializer = OrderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        order = serializer.save()
 
+        order = OrderService.create_order(
+            email=serializer.validated_data["email"],
+            phone_number=serializer.validated_data["phone_number"],
+            delivery_address=serializer.validated_data["delivery_address"],
+            cart=cart
+        )
+        return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
+
+    def get(self, request, pk):
+        try:
+            order = Order.objects.prefetch_related("items").get(id=pk)
+        except Order.DoesNotExist:
+            return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
 
