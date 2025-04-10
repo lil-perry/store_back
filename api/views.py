@@ -1,4 +1,7 @@
 # from django.shortcuts import render
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -127,9 +130,9 @@ class CartItemViewSet(viewsets.ViewSet):
 
 
 
-class OrderView(APIView):
+class OrderViewSet(viewsets.ViewSet):
 
-    def post(self, request):
+    def create(self, request):
         session_id = request.session.get('session_id')
 
         if not session_id:
@@ -151,11 +154,53 @@ class OrderView(APIView):
         )
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
-    def get(self, request, pk):
+    #накинуть права доступа только для админов
+    def retrieve(self, request, pk=None):
+        order = get_object_or_404(Order, pk=pk)
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    #накинуть права доступа только для админов
+    def list(self, request):
+        orders = Order.objects.all()
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
+
+
+    # трекать заказ юзеру
+    @action(detail=False, methods=['get'], url_path='track/(?P<access_token>[^/.]+)')
+    def track_order(self, request, access_token=None):
+        order = get_object_or_404(Order, access_token=access_token)
+        serializer = OrderSerializer(order)
+        return Response(serializer.data)
+
+    #обновить заказ юзеру
+    @action(detail=False, methods=['post'], url_path='(?P<access_token>[^/.]+)/update-status')
+    def update_status(self, request, access_token=None):
+        order = get_object_or_404(Order, access_token=access_token)
+        new_status = request.data.get('status')
+
+        if not new_status:
+            return Response({"error": "No new status provided."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            order = Order.objects.prefetch_related("items").get(id=pk)
-        except Order.DoesNotExist:
-            return Response({"message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+            order = order.update_order_status(new_status)
+        except ValidationError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
 
+    # @action(detail=False, methods=['post'], url_path='(?P<access_token>[^/.]+)/update-status')
+    # def update_status(self, request, access_token=None):
+    #     order = get_object_or_404(Order, access_token=access_token)
+    #     new_status = request.data.get('status')
+    #
+    #     if new_status not in ['cancelled']:  # клиент может только отменить
+    #         return Response({"error": "You cannot change status to this value."}, status=status.HTTP_403_FORBIDDEN)
+    #
+    #     try:
+    #         order = order.update_order_status(new_status)
+    #     except ValidationError as e:
+    #         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    #
+    #     return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)

@@ -15,7 +15,7 @@ class OrderService:
         for item in cart_items:
             if item.quantity > item.product.stock_quantity:
                 raise ValidationError(
-                    {"product": f"Недостаточно товара {item.product.name}. Доступно: {item.product.stock_quantity}"}
+                    {"product": f"Not enough goods {item.product.name}. Available: {item.product.stock_quantity}"}
                 )
 
         with transaction.atomic():

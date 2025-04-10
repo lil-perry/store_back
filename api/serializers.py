@@ -121,11 +121,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    order_tracking_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
-        fields = ['id', 'email', 'phone_number', 'delivery_address', 'status', 'total_price', 'items']
+        fields = ['id', 'access_token', 'order_tracking_url', 'email', 'phone_number', 'delivery_address', 'status', 'total_price', 'items']
 
+
+    def get_order_tracking_url(self, obj):
+        return f"https://store.com/orders/track/{obj.access_token}/"
 
 
 # class OrderSerializer(serializers.ModelSerializer):

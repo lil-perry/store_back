@@ -1,6 +1,8 @@
 from django.db import models
 import uuid
 from django.contrib.auth.models import User
+from rest_framework.exceptions import ValidationError
+
 
 class Category(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -42,11 +44,9 @@ class Cart(models.Model):
         return f"Cart (Session: {self.session_id})"
 
     def total_quantity(self):
-        """Общее количество товаров в корзине"""
         return sum(item.quantity for item in self.items.all())
 
     def total_price(self):
-        """Общая стоимость товаров в корзине"""
         return sum(item.product.price * item.quantity for item in self.items.all())
 
 
@@ -61,6 +61,7 @@ class CartItem(models.Model):
 
 
 class Order(models.Model):
+    access_token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     email = models.EmailField()
     phone_number = models.CharField(max_length=15)
     delivery_address = models.TextField()
@@ -70,18 +71,38 @@ class Order(models.Model):
     status = models.CharField(
         max_length=20,
         choices=[
-            ('pending', 'Pending'),
-            ('processing', 'Processing'),
-            ('shipped', 'Shipped'),
-            ('delivered', 'Delivered'),
-            ('cancelled', 'Cancelled'),
+            ('pending', 'pending'),
+            ('processing', 'processing'),
+            ('shipped', 'shipped'),
+            ('delivered', 'delivered'),
+            ('cancelled', 'cancelled'),
         ],
         default='pending',
     )
 
 
-    def str(self):
+    def __str__(self):
         return f"Order {self.id} - {self.email} - {self.delivery_address}"
+
+    def update_order_status(self, new_status: str):
+        valid_transitions = {
+            'pending': ['processing', 'cancelled'],
+            'processing': ['shipped', 'cancelled'],
+            'shipped': ['delivered'],
+            'delivered': [],
+            'cancelled': []
+        }
+
+        if new_status not in valid_transitions[self.status]:
+            raise ValidationError(f"Cannot change status from {self.status} to {new_status}")
+
+        self.status = new_status
+        self.save()
+        return self
+
+
+
+
 
     # def calculate_total_price(self):
     #     self.total_price = sum(item.total_price() for item in self.items.all())

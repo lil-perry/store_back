@@ -28,13 +28,13 @@ router.register(r'products', ProductViewSet)
 router.register(r'product-images', ProductImageViewSet)
 router.register(r'categories', CategoryViewSet)
 router.register(r'cartitem', CartItemViewSet, basename='cartitem')
+router.register(r'order', OrderViewSet, basename='order')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/cart/', CartView.as_view(), name='cart_create'),
-    path('api/order/', OrderView.as_view(), name='order'),
+    # path('api/order/', OrderView.as_view(), name='order'),
     # path('api/cartitem/', CartItemView.as_view(), name='cartitem'),
     # path('api/cartitem/<int:pk>/', CartItemView.as_view(), name='cartitem_update'),
-    # path('api/order/', OrderView.as_view(), name='order'),
     path('api/', include(router.urls)),
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
